@@ -5,13 +5,14 @@ class HeatPump(object):
     """Simulation Hybridwaermepumpe."""
 
     def __init__(self, niederdruck, hochdruck, drehzahl,
-                 konzentration_arm, durchfluss_pumpe):
+                 konzentration_arm, durchfluss_pumpe, temp_arm):
         """initialisierung."""
         self.p_nd = niederdruck
         self.p_hd = hochdruck
         self.n = drehzahl
         self.x_arm = konzentration_arm
         self.m_liq = durchfluss_pumpe
+        self.t_liq = temp_arm
 
     def verdichter_massenstrom(self):
         """Berechnet mvap."""
@@ -31,7 +32,6 @@ class HeatPump(object):
 
         return m_vap
 
-
     def verdichter_leistung(self):
         """Berechnet die Leistung des Verdichters."""
         to = PropsSI('T', 'Q', 0, 'P', self.p_nd, 'REFPROP::Ammonia')-273.15
@@ -47,25 +47,29 @@ class HeatPump(object):
 
         return p_v
 
-    def stoffdaten(self):
+    def stoffdaten_arm(self):
 
+        return 'REFPROP::Ammonia[%s]&Water[%s]' % (self.x_arm, 1-self.x_arm)
+
+    def stoffdaten_reich(self):
+
+        x_reich = self.konzentration_reich()
+
+        test =  'REFPROP::Ammonia[%s]&Water[%s]' % (x_reich, 1-x_reich)
+        return test
+
+    def converted_massenstrom_arm(self):
+        return self.m_liq * PropsSI('D', 'T', self.t_liq+273.15, 'P', self.p_hd, self.stoffdaten_arm())*(1.0/60000)
+
+
+    def massenstrom_reicheloesung(self):
         
-
-
-    def massenstrom-reicheloesung(self):
-
-
-
-    def konzentrationen(self,t_liq):
-
-        refarm = 'REFPROP::Ammonia[%s]&Water[%s]' % (self.x_arm, 1-self.x_arm) 
-
-        m_liq = self.m_liq*PropsSI('D', 'T', t_liq+273.15, 'P', self.p_hd, refarm)
-        m_liq = m_liq*(1.0/60000)
         m_vap = self.verdichter_massenstrom()
-        m_mix = m_vap+m_liq
-        x_reich = (m_vap+m_liq*self.x_arm)/m_mix
-        refreich = 'REFPROP::Ammonia[%s]&Water[%s]' % (x_reich, 1-x_reich)
-        return refarm, refreich, m_liq, m_mix, x_reich
+        return m_vap + self.converted_massenstrom_arm()
+
+    def konzentration_reich(self):
+
+        x_reich = (self.verdichter_massenstrom()+self.converted_massenstrom_arm()*self.x_arm) / self.massenstrom_reicheloesung()
+        return x_reich
 
     # def set_outside()
